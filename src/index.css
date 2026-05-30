@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  --color-industrial-900: #1a1c1a;
+  --color-industrial-800: #2d302d;
+  --color-industrial-700: #3f443f;
+  --color-industrial-600: #545b54;
+  --color-terminal-green: #00ff00;
+  --color-terminal-green-dim: #00aa00;
+  --color-terminal-bg: #0a0a0a;
+  
+  --color-background: var(--color-industrial-900);
+  --color-foreground: #e5e7eb;
+  --color-card: var(--color-industrial-800);
+  --color-card-foreground: #e5e7eb;
+  --color-primary: #00ff00;
+  --color-primary-foreground: #000000;
+  --color-muted: var(--color-industrial-700);
+  --color-muted-foreground: #9ca3af;
+  --color-border: var(--color-industrial-700);
+  --color-input: var(--color-industrial-700);
+  --color-ring: #00ff00;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: monospace;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Scrollbar for terminal */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-terminal-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-industrial-600);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-industrial-700);
+}
+
+.physical-btn {
+  @apply border-b-4 border-r-4 border-t-2 border-l-2 border-b-black border-r-black border-t-industrial-600 border-l-industrial-600 bg-industrial-800 text-foreground transition-all duration-75 flex items-center justify-center font-bold px-4 py-2 hover:bg-industrial-700;
+}
+.physical-btn:active {
+  @apply border-b-2 border-r-2 border-t-4 border-l-4 border-b-industrial-600 border-r-industrial-600 border-t-black border-l-black;
+}
