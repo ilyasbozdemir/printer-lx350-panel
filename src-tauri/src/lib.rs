@@ -2,8 +2,8 @@ use serialport::SerialPort;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, Manager, State};
-use serde::{Serialize, Deserialize};
+use tauri::{AppHandle, Emitter, State};
+use serde::Serialize;
 use std::net::TcpStream;
 use std::io::Write;
 use std::io::Read;
@@ -16,6 +16,8 @@ use windows::Win32::Graphics::Printing::{
 };
 #[cfg(windows)]
 use windows::core::{PWSTR, PCWSTR};
+#[cfg(windows)]
+use windows::Win32::Foundation::HANDLE;
 
 #[derive(Serialize)]
 struct PortInfo {
@@ -34,7 +36,7 @@ enum ConnectionMode {
     Serial(Box<dyn SerialPort>),
     Tcp(TcpStream),
     #[cfg(windows)]
-    WindowsSpooler(windows::Win32::Graphics::Printing::HANDLE),
+    WindowsSpooler(HANDLE),
 }
 
 struct PrinterHandle {
@@ -102,7 +104,7 @@ fn get_windows_printers(app: AppHandle) -> Vec<String> {
                 flags,
                 PCWSTR::null(),
                 4,
-                Some(buffer.as_mut_ptr()),
+                Some(&mut buffer),
                 &mut cb_needed,
                 &mut c_returned,
             );
@@ -230,7 +232,7 @@ fn connect_port(app: AppHandle, state: State<'_, PrinterState>, port_path: Strin
     } else if mode == "windows" {
         #[cfg(windows)]
         {
-            let mut handle: windows::Win32::Graphics::Printing::HANDLE = windows::Win32::Graphics::Printing::HANDLE::default();
+            let mut handle: HANDLE = HANDLE::default();
             let mut port_utf16: Vec<u16> = port_path.encode_utf16().chain(std::iter::once(0)).collect();
             unsafe {
                 let success = OpenPrinterW(PCWSTR(port_utf16.as_ptr()), &mut handle, None);
@@ -306,13 +308,13 @@ fn send_command(app: AppHandle, state: State<'_, PrinterState>, bytes: Vec<u8>) 
                         pDatatype: PWSTR(datatype.as_mut_ptr()),
                     };
                     
-                    if StartDocPrinterW(*win_handle, 1, &doc_info as *const _ as *const u8).is_ok() {
-                        if StartPagePrinter(*win_handle).is_ok() {
+                    if StartDocPrinterW(*win_handle, 1, &doc_info as *const _) > 0 {
+                        if StartPagePrinter(*win_handle).as_bool() {
                             let mut bytes_written = 0;
                             let res = WritePrinter(*win_handle, bytes.as_ptr() as *const _, bytes.len() as u32, &mut bytes_written);
                             let _ = EndPagePrinter(*win_handle);
                             let _ = EndDocPrinter(*win_handle);
-                            res.is_ok()
+                            res.as_bool()
                         } else {
                             let _ = EndDocPrinter(*win_handle);
                             false
