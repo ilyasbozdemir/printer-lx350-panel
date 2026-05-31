@@ -24,3 +24,6 @@ log = "0.4"
 tauri = { version = "2.11.2", features = [] }
 tauri-plugin-log = "2"
 serialport = "4.3.0"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.52.0", features = ["Win32_Graphics_Printing", "Win32_Foundation", "Win32_Security"] }

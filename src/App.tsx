@@ -20,8 +20,15 @@ interface LogPayload {
 }
 
 function App() {
+  const [connectionMode, setConnectionMode] = useState<'serial' | 'tcp' | 'windows'>('serial')
+  
   const [ports, setPorts] = useState<PortInfo[]>([])
-  const [selectedPort, setSelectedPort] = useState<string>('')
+  const [winPrinters, setWinPrinters] = useState<string[]>([])
+  
+  const [selectedSerial, setSelectedSerial] = useState<string>('')
+  const [selectedWinPrinter, setSelectedWinPrinter] = useState<string>('')
+  const [tcpIp, setTcpIp] = useState<string>('192.168.1.50:9100')
+  
   const [isConnected, setIsConnected] = useState(false)
   const [font, setFont] = useState<number>(0)
   const [logs, setLogs] = useState<LogEntry[]>([])
@@ -32,8 +39,14 @@ function App() {
     // Get initial ports
     invoke<PortInfo[]>('get_ports').then(p => {
       setPorts(p)
-      if (p.length > 0) setSelectedPort(p[0].path)
-    }).catch(err => addLog(`Failed to list ports: ${err}`, 'error'))
+      if (p.length > 0) setSelectedSerial(p[0].path)
+    }).catch(err => addLog(`Failed to list serial ports: ${err}`, 'error'))
+    
+    // Get Windows Printers
+    invoke<string[]>('get_windows_printers').then(p => {
+      setWinPrinters(p)
+      if (p.length > 0) setSelectedWinPrinter(p[0])
+    }).catch(err => addLog(`Failed to list windows printers: ${err}`, 'error'))
 
     // Listen to logs
     let unlistenFn: () => void;
@@ -65,8 +78,14 @@ function App() {
       const success = await invoke<boolean>('disconnect_port')
       if (success) setIsConnected(false)
     } else {
-      if (!selectedPort) return
-      const success = await invoke<boolean>('connect_port', { portPath: selectedPort })
+      let targetPath = '';
+      if (connectionMode === 'serial') targetPath = selectedSerial;
+      else if (connectionMode === 'tcp') targetPath = tcpIp;
+      else if (connectionMode === 'windows') targetPath = selectedWinPrinter;
+      
+      if (!targetPath) return;
+      
+      const success = await invoke<boolean>('connect_port', { portPath: targetPath, mode: connectionMode })
       setIsConnected(success)
     }
   }
@@ -96,26 +115,78 @@ function App() {
   return (
     <div className="h-screen flex flex-col bg-background text-foreground p-4 gap-4">
       {/* Header / Port Selection */}
-      <div className="flex items-center gap-4 bg-card p-4 rounded-md border border-border shadow-sm">
-        <h1 className="text-xl font-bold uppercase tracking-wider text-primary">LX350 Panel</h1>
+      <div className="flex flex-col gap-3 bg-card p-4 rounded-md border border-border shadow-sm">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold uppercase tracking-wider text-primary">LX350 Panel</h1>
+          <div className="flex gap-2">
+            <button 
+              className={`px-3 py-1 text-sm font-bold uppercase rounded ${connectionMode === 'serial' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
+              onClick={() => { if(!isConnected) setConnectionMode('serial') }}
+              disabled={isConnected}
+            >
+              Serial (COM)
+            </button>
+            <button 
+              className={`px-3 py-1 text-sm font-bold uppercase rounded ${connectionMode === 'windows' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
+              onClick={() => { if(!isConnected) setConnectionMode('windows') }}
+              disabled={isConnected}
+            >
+              Windows Printers
+            </button>
+            <button 
+              className={`px-3 py-1 text-sm font-bold uppercase rounded ${connectionMode === 'tcp' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
+              onClick={() => { if(!isConnected) setConnectionMode('tcp') }}
+              disabled={isConnected}
+            >
+              TCP / Network
+            </button>
+          </div>
+        </div>
         
-        <div className="flex-1 flex items-center gap-3 justify-end">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 justify-end pt-2 border-t border-border mt-1">
+          <div className="flex items-center gap-2 mr-auto">
             <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-terminal-green shadow-[0_0_8px_#00ff00]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></div>
             <span className="text-sm font-bold uppercase">{isConnected ? 'Connected' : 'Offline'}</span>
           </div>
           
-          <select 
-            className="bg-input border border-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            value={selectedPort}
-            onChange={(e) => setSelectedPort(e.target.value)}
-            disabled={isConnected}
-          >
-            <option value="" disabled>Select Port...</option>
-            {ports.map(p => (
-              <option key={p.path} value={p.path}>{p.path} {p.manufacturer ? `(${p.manufacturer})` : ''}</option>
-            ))}
-          </select>
+          {connectionMode === 'serial' && (
+            <select 
+              className="bg-input border border-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring min-w-[250px]"
+              value={selectedSerial}
+              onChange={(e) => setSelectedSerial(e.target.value)}
+              disabled={isConnected}
+            >
+              <option value="" disabled>Select Serial Port...</option>
+              {ports.map(p => (
+                <option key={p.path} value={p.path}>{p.path} {p.manufacturer ? `(${p.manufacturer})` : ''}</option>
+              ))}
+            </select>
+          )}
+
+          {connectionMode === 'windows' && (
+            <select 
+              className="bg-input border border-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring min-w-[250px]"
+              value={selectedWinPrinter}
+              onChange={(e) => setSelectedWinPrinter(e.target.value)}
+              disabled={isConnected}
+            >
+              <option value="" disabled>Select Windows Printer...</option>
+              {winPrinters.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          )}
+
+          {connectionMode === 'tcp' && (
+            <input 
+              type="text"
+              className="bg-input border border-border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring min-w-[250px]"
+              value={tcpIp}
+              onChange={(e) => setTcpIp(e.target.value)}
+              disabled={isConnected}
+              placeholder="192.168.1.50:9100"
+            />
+          )}
           
           <button 
             onClick={handleConnect}
